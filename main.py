@@ -72,6 +72,7 @@ class NudgeBot(QWidget):
         self.last_intent = None
         self.last_question = None
         self.current_topic = None
+        self.waiting_for = None
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -158,25 +159,28 @@ class NudgeBot(QWidget):
     def generate_response(self, message):
         intent = self.detect_intent(message)
 
-        if self.last_question is not None:
-            if message.lower().strip() in [
-                "yes",
-                "yeah",
-                "yep",
-                "yup",
-                "no",
-                "nope",
-                "nah"
-            ]:
-                return self.handle_confirmation(message)
+        if self.waiting_for == "tired_reason":
+            self.waiting_for = None
+            return f"Got it. So you've been {message.lower().strip()}."
+
+        if self.waiting_for == "study_subject":
+            self.waiting_for = None
+            self.current_topic = message.strip()
+            return f"Nice. You're working on {message.strip()}. How's it going?"
+
+        if self.waiting_for == "sad_reason":
+            self.waiting_for = None
+            return "I see. Thanks for telling me."
 
 
         if intent == "STUDYING" and self.last_intent == "TIRED":
             self.last_intent = intent
+            self.waiting_for = "study_subject"
+
             return random.choice([
-                "Studying? What are you working on?",
+                "Studying? What subject?",
                 "Ah, that's probably why you're tired. What subject?",
-                "Study session, huh? What's the topic?"
+                "Study session, huh? What are you working on?"
             ])
 
         self.last_intent = intent
@@ -198,10 +202,10 @@ class NudgeBot(QWidget):
             ],
 
             "TIRED": [
-                "Sounds like you've had a long day.",
-                "You sound exhausted. What have you been doing?",
-                "Running low on battery?",
-                "Sounds like you could use a break."
+                "Sounds like you've had a long day. What have you been doing?",
+                "You sound exhausted. What happened?",
+                "Running low on battery? What's been keeping you busy?",
+                "Sounds like you could use a break. What have you been up to?"
             ],
 
             "HAPPY": [
@@ -226,7 +230,18 @@ class NudgeBot(QWidget):
             ],
         }
 
-        return random.choice(responses[intent])
+        response = random.choice(responses[intent])
+
+        if intent == "TIRED":
+            self.waiting_for = "tired_reason"
+
+        elif intent == "STUDYING":
+            self.waiting_for = "study_subject"
+
+        elif intent == "SAD":
+            self.waiting_for = "sad_reason"
+
+        return response
 
     def handle_confirmation(self, message):
         message = message.lower().strip()
