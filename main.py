@@ -1,6 +1,6 @@
 import sys
-
 import random
+import re
 
 from PySide6.QtWidgets import(
     QApplication,
@@ -61,6 +61,25 @@ INTENTS = {
         "schoolwork"
     ],
 }
+
+TOPICS = {
+    "physics": ["physics", "phy"],
+    "chemistry": ["chemistry", "chem"],
+    "mathematics": ["math", "maths", "mathematics"],
+    "computer science": ["computer science", "cs", "coding", "programming"],
+    "school": ["school", "classes", "class"],
+}
+
+DIFFICULTY_PHRASES = [
+    "difficult",
+    "hard",
+    "confusing",
+    "struggling",
+    "don't understand",
+    "do not understand",
+    "can't understand",
+    "cannot understand",
+]
 
 class NudgeBot(QWidget):
     def __init__(self):
@@ -158,6 +177,10 @@ class NudgeBot(QWidget):
 
     def generate_response(self, message):
         intent = self.detect_intent(message)
+        topic = self.detect_topic(message)
+
+        if topic:
+            self.current_topic = topic
 
         if self.waiting_for == "tired_reason":
             self.waiting_for = None
@@ -165,13 +188,27 @@ class NudgeBot(QWidget):
 
         if self.waiting_for == "study_subject":
             self.waiting_for = None
-            self.current_topic = message.strip()
-            return f"Nice. You're working on {message.strip()}. How's it going?"
+
+            detected_topic = self.detect_topic(message)
+
+            if detected_topic:
+                self.current_topic = detected_topic
+            else:
+                self.current_topic = message.strip()
+
+            return f"Nice. You're working on {self.current_topic}. How's it going?"
 
         if self.waiting_for == "sad_reason":
             self.waiting_for = None
             return "I see. Thanks for telling me."
 
+
+        if self.current_topic:
+            message_lower = message.lower()
+
+            for phrase in DIFFICULTY_PHRASES:
+                if phrase in message_lower:
+                    return f"What part of {self.current_topic} are you finding difficult?"
 
         if intent == "STUDYING" and self.last_intent == "TIRED":
             self.last_intent = intent
@@ -272,6 +309,18 @@ class NudgeBot(QWidget):
                     return intent
 
         return "UNKNOWN"
+
+    def detect_topic(self, message):
+        message = message.lower()
+
+        for topic, keywords in TOPICS.items():
+            for keyword in keywords:
+                pattern = r"\b" + re.escape(keyword) + r"\b"
+
+                if re.search(pattern, message):
+                    return topic
+
+        return None
 
     def is_question(self, message):
         question_words = [
