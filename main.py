@@ -11,6 +11,46 @@ from PySide6.QtWidgets import(
 )
 from PySide6.QtCore import Qt
 
+
+INTENTS = {
+    "GREETING": [
+        "hello",
+        "hi",
+        "hey",
+        "yo",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "sup"
+    ],
+
+    "SAD": [
+        "sad",
+        "unhappy",
+        "upset",
+        "miserable",
+        "down",
+        "lonely"
+    ],
+
+    "TIRED": [
+        "tired",
+        "exhausted",
+        "sleepy",
+        "drained",
+        "fatigued"
+    ],
+
+    "HAPPY": [
+        "happy",
+        "excited",
+        "great",
+        "amazing",
+        "awesome",
+        "good"
+    ]
+}
+
 class NudgeBot(QWidget):
     def __init__(self):
         super().__init__()
@@ -102,18 +142,17 @@ class NudgeBot(QWidget):
         self.add_bot_message(response)
 
     def generate_response(self, message):
-        message = message.lower()
-
-        if "hello" in message or "hi" in message:
+        intent = self.detect_intent(message)
+        if intent == "GREETING":
             return "Hey! What's up?"
 
-        if "sad" in message:
-            return "I'm sorry you're feeling sad. Want to talk about it?"
+        if intent == "SAD":
+            return "I'm sorry you're feeling down. Want to talk about it?"
 
-        if "tired" in message:
+        if intent == "TIRED":
             return "Sounds like you've had a long day."
 
-        if "happy" in message:
+        if intent == "HAPPY":
             return "That's great! What's making you happy?"
 
         return "Hmm... tell me more about that."
@@ -127,6 +166,15 @@ class NudgeBot(QWidget):
         self.chat.append(
             f'<p style="color:#ffffff;"><b>Nudge Bot:</b> {message}</p>'
         )
+
+    def detect_intent(self, message):
+        message = message.lower()
+        for intent, keywords in INTENTS.items():
+            for keyword in keywords:
+                if keyword in message:
+                    return intent
+
+        return "Unknown"
 
 app = QApplication(sys.argv)
 
