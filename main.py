@@ -88,10 +88,12 @@ class NudgeBot(QWidget):
         self.setWindowTitle("Nudge Bot")
         self.resize(700,600)
         self.setup_ui()
-        self.last_intent = None
-        self.last_question = None
-        self.current_topic = None
-        self.waiting_for = None
+        self.context = {
+            "last_intent": None,
+            "last_message": None,
+            "current_topic": None,
+            "waiting_for": None
+        }
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -180,47 +182,15 @@ class NudgeBot(QWidget):
         topic = self.detect_topic(message)
 
         if topic:
-            self.current_topic = topic
+            self.context["current_topic"] = topic
 
-        if self.waiting_for == "tired_reason":
-            self.waiting_for = None
-            return f"Got it. So you've been {message.lower().strip()}."
+        if self.context["waiting_for"] == "open_response":
+            self.context["waiting_for"] = None
 
-        if self.waiting_for == "study_subject":
-            self.waiting_for = None
+            return self.respond_to_open_response(message)
 
-            detected_topic = self.detect_topic(message)
-
-            if detected_topic:
-                self.current_topic = detected_topic
-            else:
-                self.current_topic = message.strip()
-
-            return f"Nice. You're working on {self.current_topic}. How's it going?"
-
-        if self.waiting_for == "sad_reason":
-            self.waiting_for = None
-            return "I see. Thanks for telling me."
-
-
-        if self.current_topic:
-            message_lower = message.lower()
-
-            for phrase in DIFFICULTY_PHRASES:
-                if phrase in message_lower:
-                    return f"What part of {self.current_topic} are you finding difficult?"
-
-        if intent == "STUDYING" and self.last_intent == "TIRED":
-            self.last_intent = intent
-            self.waiting_for = "study_subject"
-
-            return random.choice([
-                "Studying? What subject?",
-                "Ah, that's probably why you're tired. What subject?",
-                "Study session, huh? What are you working on?"
-            ])
-
-        self.last_intent = intent
+        self.context["last_intent"] = intent
+        self.context["last_message"] = message
 
         responses = {
 
@@ -240,7 +210,7 @@ class NudgeBot(QWidget):
 
             "TIRED": [
                 "Sounds like you've had a long day. What have you been doing?",
-                "You sound exhausted. What happened?",
+                "You sound exhausted. What's been going on?",
                 "Running low on battery? What's been keeping you busy?",
                 "Sounds like you could use a break. What have you been up to?"
             ],
@@ -252,48 +222,68 @@ class NudgeBot(QWidget):
                 "That's awesome! Tell me about it."
             ],
 
+            "STUDYING": [
+                "What are you working on?",
+                "What are you studying?",
+                "What's keeping you busy?",
+                "How's that going?"
+            ],
+
             "UNKNOWN": [
                 "Hmm... tell me more about that.",
                 "Interesting. What makes you say that?",
                 "I see. Can you tell me more?",
                 "I'm listening."
             ],
-
-            "STUDYING": [
-                "What are you studying?",
-                "What subject are you working on?",
-                "Study session, huh? What are you working on?",
-                "What's the topic?"
-            ],
         }
 
         response = random.choice(responses[intent])
 
-        if intent == "TIRED":
-            self.waiting_for = "tired_reason"
-
-        elif intent == "STUDYING":
-            self.waiting_for = "study_subject"
-
-        elif intent == "SAD":
-            self.waiting_for = "sad_reason"
+        
+        if intent in ["SAD", "TIRED", "HAPPY", "STUDYING"]:
+            self.context["waiting_for"] = "open_response"
 
         return response
 
-    def handle_confirmation(self, message):
-        message = message.lower().strip()
 
-        if message in ["yes", "yeah", "yep", "yup"]:
-            return "Got it. Tell me more."
+    def respond_to_open_response(self, message):
+        message_lower = message.lower()
 
-        if message in ["no", "nope", "nah"]:
-            return "Alright. So what's going on?"
+        
+        topic = self.detect_topic(message)
 
-        return "Okay. Tell me more."
+        if topic:
+            self.context["current_topic"] = topic
+
+        current_topic = self.context["current_topic"]
+
+        for phrase in DIFFICULTY_PHRASES:
+            if phrase in message_lower:
+
+                if current_topic:
+                    return random.choice([
+                        f"What part of {current_topic} is giving you trouble?",
+                        f"What about {current_topic} is difficult?",
+                        f"What's confusing you about {current_topic}?"
+                    ])
+
+                return random.choice([
+                    "What part are you finding difficult?",
+                    "What's confusing you?",
+                    "What are you struggling with?"
+                ])
+
+        return random.choice([
+            "I see. Tell me more about that.",
+            "Interesting. What happened next?",
+            "Got it. How did that make you feel?",
+            "I see. What do you think about it?",
+            "That sounds interesting. What happened?"
+        ])
     
     def add_user_message(self, message):
         self.chat.append(
-            f'<p style ="color:#9b8cff;"><b>You:<b> {message}</p>'
+            f'<p style ="color:#9b8cff;"><b>You:</b> {message}</p>'
         )
 
     def add_bot_message(self, message):
